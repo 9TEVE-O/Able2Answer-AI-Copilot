@@ -1,6 +1,6 @@
-# Able2Answer — Abel, an AI Copilot for Ableton Live
+# Able2Answer AI Copilot
 
-Abel is a production assistant for [Ableton Live](https://www.ableton.com/). It answers audio-quality
+Able2Answer AI Copilot is a production assistant for [Ableton Live](https://www.ableton.com/). It answers audio-quality
 questions, reads your actual `.als` project files, and tailors its advice to the music you really listen to.
 
 It is built to be **useful without the internet** and **private by default**.
@@ -30,7 +30,7 @@ pip install -e ".[offline]"         # local inference via Ollama
 pip install -e ".[all]"             # everything, including dev/test tools
 ```
 
-Every optional dependency is imported lazily, so Abel starts and runs without any of them installed.
+Every optional dependency is imported lazily, so Able2Answer AI Copilot starts and runs without any of them installed.
 
 ---
 
@@ -63,7 +63,7 @@ Offline answers are grounded by retrieval over a local SQLite knowledge base (25
 
 ## Music taste profile
 
-So that Abel's advice fits the music you actually make:
+So that Able2Answer AI Copilot's advice fits the music you actually make:
 
 ```bash
 pip install -e ".[music-profile]"
@@ -77,7 +77,7 @@ abel --update-profile    # re-sync later
 ```
 
 It aggregates genres (weighted by play count), a BPM range, energy and mood, and your top artists,
-then classifies a production style. That summary is injected into Abel's system prompt.
+then classifies a production style. That summary is injected into Able2Answer AI Copilot's system prompt.
 
 ### Privacy
 
@@ -138,7 +138,7 @@ usually asking the second one.
 
 The `abel/live/` package covers the second. A small **Max for Live bridge**
 reads the open Live Set through the Live Object Model and posts a structured
-snapshot to Abel, which parses it into a typed `SessionSnapshot`.
+snapshot to Able2Answer AI Copilot, which parses it into a typed `SessionSnapshot`.
 
 The rules that layer follows are worth stating plainly, because they are the
 product:
@@ -150,7 +150,7 @@ product:
 - **Never answer from a stale session.** An observation older than 30 seconds
   is withheld, because you have probably changed something since.
 - **Observation and knowledge stay separate.** `abel/evidence/` keeps what was
-  *measured in your session* permanently distinguishable from what Abel *knows
+  *measured in your session* permanently distinguishable from what Able2Answer AI Copilot *knows
   about audio in general* — right through to the UI, which labels them apart.
 - **Quantities get checked.** Before an answer reaches you, every number in it
   is checked against the evidence the model was given. Unsupported figures are
@@ -171,8 +171,8 @@ pytest -q
 Alpha, and honest about it:
 
 - The audio-quality tools, `.als` parsing, offline knowledge base, taste-profile aggregation, and the Live Bridge boundary are covered by 167 tests.
-- **Spotify OAuth has not been tested against the live API** — it has no automated coverage and rests on review rather than execution. Treat it as unproven until you have run `--setup-profile` with real credentials.
-- **The Max for Live bridge has not been run inside Ableton Live.** The Python side of that boundary is tested against the exact payload shape it documents, so the contract is covered — but the device producing it is not. See [`ableton/live-bridge/README.md`](ableton/live-bridge/README.md).
+- **Spotify OAuth has not been tested against the live API** — it has no automated coverage and rests on review rather than execution. Treat it as unproven until you have run `--setup-profile` [...]
+- **The Max for Live bridge has not been run inside Ableton Live.** The Python side of that boundary is tested against the exact payload shape it documents, so the contract is covered — but the[...]
 
 ## License
 
