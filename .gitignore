@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+build/
+dist/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Abel runtime data — never commit these
+.env
+.abel/
+*.db
+taste_profile.json
+spotify_token.json
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store

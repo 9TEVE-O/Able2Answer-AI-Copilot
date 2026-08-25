@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "able2answer"
+version = "0.1.0"
+description = "Abel — an offline-capable AI copilot for Ableton Live"
+readme = "README.md"
+# abel/config.py uses unquoted PEP 604 (`X | None`) in a dataclass, so 3.10 is
+# the true floor; 3.11 is pinned to match what the test suite is verified on.
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Subzteveø" }]
+keywords = ["ableton", "ableton-live", "music-production", "audio", "ai", "copilot"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Multimedia :: Sound/Audio",
+]
+dependencies = [
+  # Imported by abel/audio_quality_agent.py on the DEFAULT path (ABEL_MODE=online),
+  # so it is a hard requirement, not an extra.
+  "anthropic>=0.125.0,<1",
+]
+
+[project.optional-dependencies]
+# Music taste profile: Spotify OAuth2 + local audio file tag reading.
+# Both are imported lazily, so Abel runs fine without them.
+music-profile = [
+  "spotipy>=2.24.0,<3",
+  "mutagen>=1.47.0,<2",
+]
+# Offline mode (ABEL_MODE=offline) runs inference through a local Ollama model.
+offline = ["ollama>=0.3.0,<1"]
+dev = ["pytest>=8,<10"]
+all = ["able2answer[music-profile]", "able2answer[offline]", "able2answer[dev]"]
+
+[project.urls]
+Homepage = "https://github.com/9TEVE-O/Able2Answer-AI-Copilot"
+Issues = "https://github.com/9TEVE-O/Able2Answer-AI-Copilot/issues"
+
+[project.scripts]
+abel = "abel.main:main"
+
+[tool.setuptools.packages.find]
+include = ["abel", "abel.*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

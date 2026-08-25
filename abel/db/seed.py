@@ -1,0 +1,616 @@
+"""Seed the Abel knowledge base with Ableton Live device and concept data."""
+import json
+import sqlite3
+from typing import Any
+
+DEVICES: list[dict[str, Any]] = [
+    {
+        "name": "Simpler",
+        "category": "instrument",
+        "subcategory": "sampler",
+        "description": "Single-sample instrument with three playback modes: Classic (melodic), One-Shot (drums/SFX), and Slice (chop loops into pads).",
+        "key_params": ["Attack", "Decay", "Sustain", "Release", "Filter", "LFO", "Warp Mode", "Transpose"],
+        "use_cases": ["Quick drum sample playback", "Melodic instrument from any sample", "Loop slicing to pads"],
+        "tips": [
+            "Drag any audio clip directly onto a MIDI track to auto-create a Simpler.",
+            "Slice mode: set Slice By to Transient and adjust Sensitivity to auto-detect drum hits.",
+            "Classic mode: enable Loop and adjust Start/End to create wavetable-style sounds.",
+        ],
+    },
+    {
+        "name": "Sampler",
+        "category": "instrument",
+        "subcategory": "sampler",
+        "description": "Professional multi-sample instrument supporting velocity layers, round-robin, key zones, and complex modulation.",
+        "key_params": ["Sample Start/End", "Transpose", "Detune", "Filter", "LFO Amount", "Velocity Zones", "Key Zones"],
+        "use_cases": ["Multi-velocity orchestral instruments", "Complex layered pads", "Multi-zone drum kits"],
+        "tips": [
+            "Convert a Simpler to Sampler (right-click → Convert to Sampler) to unlock multi-zone mapping.",
+            "Use the Zone editor to map samples across the keyboard by pitch and velocity.",
+        ],
+    },
+    {
+        "name": "Operator",
+        "category": "instrument",
+        "subcategory": "fm_synth",
+        "description": "Four-operator FM synthesiser with eight selectable algorithms, per-operator envelopes, and built-in filter and LFO.",
+        "key_params": ["Algorithm (A-H)", "Operator Ratio", "Operator Level", "Operator Envelope", "Filter Freq/Res"],
+        "use_cases": ["FM electric pianos", "Metallic percussive sounds", "Punchy bass", "Bell and mallet tones"],
+        "tips": [
+            "Algorithm A (linear chain) = maximum FM depth; algorithm H (all parallel) = additive-style sound.",
+            "Raise the Ratio of a modulator operator to increase inharmonic metallic character.",
+            "Operator's filter self-oscillates at Resonance = 100 — useful for acid bass.",
+        ],
+    },
+    {
+        "name": "Analog",
+        "category": "instrument",
+        "subcategory": "subtractive_synth",
+        "description": "Dual-oscillator analogue-modelled synthesiser with two filters, two LFOs, and three envelopes per voice.",
+        "key_params": ["OSC1/2 Type", "Filter1/2 Type", "Filter Freq/Res", "LFO1/2 Rate", "Envelope ADSR"],
+        "use_cases": ["Classic analogue basses", "Warm pad sounds", "Fat lead synths", "Vintage polysynth chords"],
+        "tips": [
+            "Route OSC2 to Filter 2 only for true dual-filter layering with independent character.",
+            "Sync OSC2 to OSC1 then sweep OSC2 pitch for classic sync sweeps.",
+        ],
+    },
+    {
+        "name": "Wavetable",
+        "category": "instrument",
+        "subcategory": "wavetable_synth",
+        "description": "Dual-wavetable synthesiser with visual waveform display, built-in effects, and extensive modulation matrix.",
+        "key_params": ["Wavetable Position", "Sub Oscillator", "Filter Type/Freq/Res", "Modulation Matrix", "Unison"],
+        "use_cases": ["Evolving pads and textures", "Modern bass design", "Cinematic leads", "Morphing soundscapes"],
+        "tips": [
+            "Automate Wavetable Position to create smooth timbre morphing over time.",
+            "Enable Unison with 2-8 voices and small Detune for lush, wide pads.",
+            "Add a Matrix modulation from LFO to Position for evolving, breathing pads.",
+        ],
+    },
+    {
+        "name": "Drift",
+        "category": "instrument",
+        "subcategory": "hybrid_synth",
+        "description": "Semi-modular hybrid synthesiser (Live 11.3+) combining analogue-style oscillators with digital modulation and a built-in effects chain.",
+        "key_params": ["OSC Type", "Drift", "Filter", "Mod Matrix", "Built-in FX"],
+        "use_cases": ["Lo-fi and vintage textures", "Analogue-flavoured leads", "Drifting detuned pads"],
+        "tips": [
+            "The Drift parameter adds subtle pitch instability — higher values emulate analogue hardware warmth.",
+            "Use the built-in Distortion and Chorus in the FX section to keep CPU under one device.",
+        ],
+    },
+    {
+        "name": "Meld",
+        "category": "instrument",
+        "subcategory": "hybrid_synth",
+        "description": "Dual-synthesis hybrid instrument (Live 11.3+) combining two independent engines (e.g. wavetable + FM) with a shared filter.",
+        "key_params": ["Engine A Type", "Engine B Type", "Blend", "Filter", "Mod Matrix"],
+        "use_cases": ["Complex hybrid timbres", "Layered bass design", "Evolving pad textures"],
+        "tips": ["Assign Blend to a Macro for real-time timbre morphing during performance."],
+    },
+    {
+        "name": "Drum Rack",
+        "category": "instrument",
+        "subcategory": "drum_machine",
+        "description": "Pad-based drum instrument that hosts a Simpler (or any device) on each of 128 pads, with per-pad volume, pan, send, and choke groups.",
+        "key_params": ["Pad assignment", "Choke Group", "Chain Volume/Pan", "Send Amount"],
+        "use_cases": ["Complete drum kits", "Sample-based beats", "Layered percussion"],
+        "tips": [
+            "Drag samples directly onto pads to auto-load them into Simpler on each pad.",
+            "Use Choke Groups to make hi-hats cut each other (set both to the same choke group).",
+            "Each pad has its own audio output — route individual drums to separate mixer channels.",
+        ],
+    },
+    {
+        "name": "Collision",
+        "category": "instrument",
+        "subcategory": "physical_model",
+        "description": "Physical modelling instrument simulating mallet and resonator interactions — marimba, vibraphone, bells, and more.",
+        "key_params": ["Mallet Type/Stiffness/Noise", "Resonator Type", "Decay", "Pitch Decay", "Brightness"],
+        "use_cases": ["Marimba and xylophone", "Bell and metallophone sounds", "Tuned percussion"],
+        "tips": ["Combine two different resonator types (e.g. Bar + Plate) for hybrid acoustic timbres."],
+    },
+    {
+        "name": "Electric",
+        "category": "instrument",
+        "subcategory": "physical_model",
+        "description": "Physical modelling electric piano instrument inspired by Fender Rhodes, Wurlitzer, and similar vintage keyboards.",
+        "key_params": ["Mallet Hardness/Stiffness", "Tine/Tone", "Pickup Distance", "Damper", "Envelope"],
+        "use_cases": ["Vintage electric piano sounds", "Jazz and soul keys", "Lo-fi piano textures"],
+        "tips": [
+            "Increase Pickup Distance for a more hollow, belled tone.",
+            "Add a Chorus-Ensemble after Electric for classic Rhodes shimmer.",
+        ],
+    },
+    {
+        "name": "Compressor",
+        "category": "audio_effect",
+        "subcategory": "dynamics",
+        "description": "Full-featured compressor with peak/RMS detection, three knee modes, external sidechain, and built-in EQ on the sidechain.",
+        "key_params": ["Threshold", "Ratio", "Attack", "Release", "Knee", "Makeup Gain", "Sidechain"],
+        "use_cases": ["Drum bus glue", "Vocal dynamics control", "Sidechain pumping", "Bass control"],
+        "tips": [
+            "Enable Sidechain → Audio From another track for classic four-to-the-floor pumping compression.",
+            "High-pass the sidechain EQ to avoid kick sub triggering bus compressor unnecessarily.",
+            "Set Attack to ~30ms to let transients through for punch, then compress the body.",
+        ],
+    },
+    {
+        "name": "Glue Compressor",
+        "category": "audio_effect",
+        "subcategory": "dynamics",
+        "description": "Bus compressor modelled on an SSL 4000 G-Bus compressor. Excellent for group and master bus glue.",
+        "key_params": ["Threshold", "Ratio", "Attack", "Release", "Range", "Makeup", "Soft Clip"],
+        "use_cases": ["Drum bus glue", "Master bus compression", "Mix bus warming"],
+        "tips": [
+            "Ratio 2:1 or 4:1 with just 1-3 dB of gain reduction is usually enough for bus glue.",
+            "Soft Clip adds gentle saturation post-compression — useful on the master bus.",
+        ],
+    },
+    {
+        "name": "EQ Eight",
+        "category": "audio_effect",
+        "subcategory": "eq",
+        "description": "Eight-band parametric EQ with high-pass, low-pass, shelving, bell, notch, and tilt filters. Industry-standard workhorse.",
+        "key_params": ["Band Freq", "Band Gain", "Band Q", "Filter Type", "Adaptive Q"],
+        "use_cases": ["Corrective EQ", "Tonal shaping", "High-pass filtering tracks", "Notch filtering resonances"],
+        "tips": [
+            "Always high-pass every track that doesn't need low end — use band 1 as a high-pass at 30-80 Hz.",
+            "Hold Alt and drag a band point to adjust Q/bandwidth separately from gain.",
+            "Adaptive Q narrows the Q automatically at higher boosts — natural and musical for bell filters.",
+        ],
+    },
+    {
+        "name": "Channel EQ",
+        "category": "audio_effect",
+        "subcategory": "eq",
+        "description": "Simplified three-band EQ (High-Pass, Lows, Mids, Highs) designed for quick channel strip-style tone shaping.",
+        "key_params": ["High-Pass Freq", "Low Gain", "Mid Freq/Gain", "High Gain"],
+        "use_cases": ["Quick channel EQ", "Broad tonal shaping", "Tracking and live performance"],
+        "tips": ["Ideal as a first insert on every track for quick tonal balance before EQ Eight."],
+    },
+    {
+        "name": "Echo",
+        "category": "audio_effect",
+        "subcategory": "delay",
+        "description": "Stereo delay with independent L/R time, modulation, reverb, and analogue-style feedback colouration.",
+        "key_params": ["Left/Right Delay Time", "Feedback", "Repitch/Gate/Fade", "Mod Rate/Amount", "Reverb Amount"],
+        "use_cases": ["Rhythmic slapback delay", "Wide stereo ping-pong", "Textural ambient delay", "Tape echo simulation"],
+        "tips": [
+            "Set L to 1/4 and R to 3/8 for an asymmetric ping-pong that feels musical in 4/4.",
+            "Enable Repitch mode: changing delay time creates pitch-shifting artefacts like a tape delay.",
+            "High-pass the Input EQ in Echo to keep feedback from building up low-end mud.",
+        ],
+    },
+    {
+        "name": "Reverb",
+        "category": "audio_effect",
+        "subcategory": "reverb",
+        "description": "Algorithmic reverb with predelay, early reflections, diffuse network, and stereo width control.",
+        "key_params": ["Decay Time", "Predelay", "Size", "Diffusion", "Stereo Width", "Hi/Lo Cut", "Freeze"],
+        "use_cases": ["Room and hall ambience", "Drum room reverb", "Vocal plate reverb", "Infinite pad textures"],
+        "tips": [
+            "Use on a Return Track — saves CPU vs inserting on each track.",
+            "High-cut at 8 kHz and low-cut at 200 Hz keeps reverb tails from muddying the mix.",
+            "Set Predelay to 20-30ms to separate dry vocal from reverb tail.",
+        ],
+    },
+    {
+        "name": "Hybrid Reverb",
+        "category": "audio_effect",
+        "subcategory": "reverb",
+        "description": "Combines convolution IR reverb with an algorithmic reverb engine — blend between real-space IRs and infinite algorithmic tails.",
+        "key_params": ["IR Selection", "Convolution/Algorithmic Blend", "Decay", "Predelay", "Size", "Color"],
+        "use_cases": ["Realistic acoustic spaces", "Hybrid creative reverbs", "Mixing real-room IR with infinite tails"],
+        "tips": [
+            "Blend fully to Convolution for realistic rooms; fully to Algorithmic for creative/long tails.",
+            "Import custom WAV impulse responses via the IR loader for unique spaces.",
+        ],
+    },
+    {
+        "name": "Auto Filter",
+        "category": "audio_effect",
+        "subcategory": "filter",
+        "description": "Filter effect with LFO and envelope follower modulation — classic for wah, phased filter sweeps, and dynamic filtering.",
+        "key_params": ["Filter Type", "Cutoff", "Resonance", "LFO Rate/Amount", "Envelope Follower Amount"],
+        "use_cases": ["Auto-wah on bass/guitar", "Filter sweeps", "Dynamic filtering following audio level"],
+        "tips": [
+            "Set Envelope to high amounts to create an auto-wah that responds to playing dynamics.",
+            "Sync LFO to tempo for rhythmically locked filter sweeps.",
+            "Use Ladder filter type for a warmer, more analogue character.",
+        ],
+    },
+    {
+        "name": "Beat Repeat",
+        "category": "audio_effect",
+        "subcategory": "granular",
+        "description": "Stutter/repeat effect that captures and loops audio buffers in sync with tempo.",
+        "key_params": ["Interval", "Offset", "Grid", "Chance", "Pitch", "Volume Decay", "Filter"],
+        "use_cases": ["Drum fills", "Glitch effects", "Rhythmic stuttering", "Live performance randomisation"],
+        "tips": ["Set Chance to less than 100% for probabilistic glitching — the beat occasionally stutters."],
+    },
+    {
+        "name": "Saturator",
+        "category": "audio_effect",
+        "subcategory": "saturation",
+        "description": "Waveshaper with multiple curve types and built-in EQ for harmonic enhancement from subtle warmth to heavy distortion.",
+        "key_params": ["Drive", "Curve Type", "Output", "Soft Clip", "Color EQ"],
+        "use_cases": ["Subtle harmonic warmth on mix buses", "Aggressive distortion on synths", "Tape saturation"],
+        "tips": [
+            "Analog Clip curve with low Drive is transparent bus saturation — adds warmth without harshness.",
+            "Hard Curve at high Drive produces fuzz/distortion character — useful on bass.",
+        ],
+    },
+    {
+        "name": "Redux",
+        "category": "audio_effect",
+        "subcategory": "bit_crushing",
+        "description": "Bit crusher and sample rate reducer for deliberate digital lo-fi degradation.",
+        "key_params": ["Bit Depth", "Sample Rate", "Downsample", "Bit Mode"],
+        "use_cases": ["Lo-fi character", "8-bit/game audio aesthetics", "Telephone/radio effects"],
+        "tips": [
+            "Dial Bit Depth to 12-16 for subtle lo-fi warmth without obvious artefacts.",
+            "Reduce Sample Rate (not bit depth) to simulate vintage samplers like the SP-1200.",
+        ],
+    },
+    {
+        "name": "Limiter",
+        "category": "audio_effect",
+        "subcategory": "dynamics",
+        "description": "True peak limiter with look-ahead for transparent peak control — essential on master output.",
+        "key_params": ["Gain", "Ceiling", "Lookahead (1-10ms)"],
+        "use_cases": ["Master bus true peak limiting", "Loudness maximisation", "Safety limiter on buses"],
+        "tips": [
+            "Set Ceiling to -1.0 dBFS for streaming-compliant true peak (Spotify, Apple Music require <-1 dBTP).",
+            "Lookahead at 3-10ms produces more transparent limiting with less distortion.",
+        ],
+    },
+    {
+        "name": "Arpeggiator",
+        "category": "midi_effect",
+        "subcategory": "arpeggio",
+        "description": "MIDI arpeggiator with multiple direction styles, rate, gate, velocity, and transposition per step.",
+        "key_params": ["Rate", "Style (Up/Down/Up-Down/Random)", "Octaves", "Gate", "Velocity"],
+        "use_cases": ["Classic synth arpeggios", "Rhythmic MIDI patterns", "Generative melodies"],
+        "tips": [
+            "Set Style to Random for generative, non-repeating melodic patterns.",
+            "Sync Rate to project tempo and set to 1/16 for fast rhythmic patterns.",
+        ],
+    },
+    {
+        "name": "Chord",
+        "category": "midi_effect",
+        "subcategory": "harmony",
+        "description": "Adds up to six harmonically transposed notes above each played note in semitones.",
+        "key_params": ["Shift 1-6 (semitones)"],
+        "use_cases": ["Instant chord voicings from single notes", "Power chords", "Octave doubling"],
+        "tips": [
+            "Shift 1 = +4, Shift 2 = +7 creates major triads from any root note.",
+            "Combine with Scale MIDI effect before Chord to keep all notes in key.",
+        ],
+    },
+    {
+        "name": "Scale",
+        "category": "midi_effect",
+        "subcategory": "quantise",
+        "description": "Quantises incoming MIDI notes to a selected scale — prevents out-of-key notes.",
+        "key_params": ["Root Note", "Scale Type", "Fold"],
+        "use_cases": ["Key-locking MIDI controllers", "Ensuring melodies stay in scale", "Before Arpeggiator"],
+        "tips": [
+            "Place before Arpeggiator to guarantee all arpeggiated notes are in key.",
+            "Enable Fold to move out-of-scale notes to the nearest scale degree.",
+        ],
+    },
+]
+
+CONCEPTS: list[dict[str, Any]] = [
+    {
+        "term": "Sample Rate",
+        "category": "audio_quality",
+        "definition": "The number of audio samples captured per second (Hz). Determines the highest reproducible frequency (Nyquist = rate / 2). Common rates: 44100 Hz (music standard), 48000 Hz (video/broadcast).",
+        "ableton_path": "Preferences → Audio → Sample Rate",
+        "shortcut": None,
+        "related": ["Bit Depth", "Nyquist Frequency", "CPU Load"],
+    },
+    {
+        "term": "Bit Depth",
+        "category": "audio_quality",
+        "definition": "The number of bits per audio sample. Determines dynamic range (~6 dB per bit). 24-bit = 144 dB dynamic range. Ableton processes internally at 32-bit float regardless of project bit depth setting.",
+        "ableton_path": "File → Export Audio/Video → Bit Depth",
+        "shortcut": "Cmd+Shift+R / Ctrl+Shift+R",
+        "related": ["Sample Rate", "Dynamic Range", "Dithering"],
+    },
+    {
+        "term": "Warp",
+        "category": "audio",
+        "definition": "Ableton's time-stretching technology. Warping lets audio clips play at any tempo without changing pitch. Different Warp Modes suit different source material.",
+        "ableton_path": "Clip View → Warp toggle (orange button)",
+        "shortcut": None,
+        "related": ["Warp Mode", "Warp Markers", "Transient"],
+    },
+    {
+        "term": "Warp Mode",
+        "category": "audio",
+        "definition": "Algorithm used for time-stretching. Beats: rhythmic drums. Tones: monophonic melodic. Texture: pads/noise. Re-Pitch: pitch-shifts instead of stretching. Complex/Complex Pro: full mixes.",
+        "ableton_path": "Clip View → Warp Mode selector",
+        "shortcut": None,
+        "related": ["Warp", "Warp Markers"],
+    },
+    {
+        "term": "Session View",
+        "category": "workflow",
+        "definition": "Grid-based non-linear view for live performance and improvisation. Clips can be launched in any order. Scenes trigger an entire row at once.",
+        "ableton_path": "View → Session (or press Tab)",
+        "shortcut": "Tab",
+        "related": ["Arrangement View", "Scene", "Clip Slot", "Follow Action"],
+    },
+    {
+        "term": "Arrangement View",
+        "category": "workflow",
+        "definition": "Linear timeline view for composition and mixing. Traditional DAW layout with tracks arranged horizontally over time.",
+        "ableton_path": "View → Arrangement (or press Tab)",
+        "shortcut": "Tab",
+        "related": ["Session View", "Record into Arrangement"],
+    },
+    {
+        "term": "Follow Action",
+        "category": "workflow",
+        "definition": "Automatic clip launching behaviour after a clip finishes or after a set number of bars. Enables generative, self-evolving sequences without manual triggering.",
+        "ableton_path": "Clip View → Follow Action section",
+        "shortcut": None,
+        "related": ["Session View", "Clip", "Scene"],
+    },
+    {
+        "term": "Freeze Track",
+        "category": "performance",
+        "definition": "Renders a track to audio temporarily, freeing up CPU from real-time plugin processing. The track becomes uneditable until unfrozen.",
+        "ableton_path": "Right-click track header → Freeze Track",
+        "shortcut": None,
+        "related": ["Flatten Track", "CPU Meter"],
+    },
+    {
+        "term": "Flatten Track",
+        "category": "performance",
+        "definition": "Permanently commits a frozen track's audio bounce, removing the original MIDI/device chain. Unlike freeze, this is irreversible without undo.",
+        "ableton_path": "Right-click frozen track header → Flatten",
+        "shortcut": None,
+        "related": ["Freeze Track"],
+    },
+    {
+        "term": "Return Track",
+        "category": "routing",
+        "definition": "A special track that receives signal only via Send amounts from other tracks. Used for shared effect processing (reverb, delay) to save CPU — one instance serves all tracks.",
+        "ableton_path": "Session/Arrangement View — Return tracks appear to the right",
+        "shortcut": "Cmd+Alt+T / Ctrl+Alt+T",
+        "related": ["Send", "Audio Effect Rack", "Reverb", "Delay"],
+    },
+    {
+        "term": "Sidechain",
+        "category": "mixing",
+        "definition": "Using the audio signal from one track to control a parameter (usually compression threshold) on another track. Classic use: kick drum sidechain into a compressor on the bass for pumping.",
+        "ableton_path": "Compressor / Auto Filter → Sidechain section → Audio From",
+        "shortcut": None,
+        "related": ["Compressor", "Auto Filter", "Pumping"],
+    },
+    {
+        "term": "Consolidate",
+        "category": "editing",
+        "definition": "Merges selected clips or selected audio regions into a single new audio clip. Renders the selection to a new audio file in the project folder.",
+        "ableton_path": "Right-click selection → Consolidate, or Edit menu",
+        "shortcut": "Cmd+J / Ctrl+J",
+        "related": ["Flatten Track", "Bounce"],
+    },
+    {
+        "term": "Macro Controls",
+        "category": "sound_design",
+        "definition": "Eight assignable knobs on a Rack that can each be mapped to any parameter inside the rack. One knob can control multiple parameters simultaneously with independent ranges.",
+        "ableton_path": "Rack → Show Macros (click the Macro button)",
+        "shortcut": None,
+        "related": ["Instrument Rack", "Audio Effect Rack", "MIDI Map"],
+    },
+    {
+        "term": "Clip Envelope",
+        "category": "modulation",
+        "definition": "Per-clip automation that travels with the clip. Can automate any device parameter independently for each clip without affecting the global automation lane.",
+        "ableton_path": "Clip View → Envelopes tab → select Device/Parameter",
+        "shortcut": None,
+        "related": ["Automation", "Modulation", "Clip"],
+    },
+    {
+        "term": "MIDI Map Mode",
+        "category": "workflow",
+        "definition": "Assigns hardware MIDI controller inputs to any on-screen parameter. Enter MIDI Map Mode, click a parameter, move the controller. The mapping is saved with the Live set.",
+        "ableton_path": "Options → MIDI Map Mode",
+        "shortcut": "Cmd+M / Ctrl+M",
+        "related": ["Key Map Mode", "Macro Controls"],
+    },
+    {
+        "term": "Resampling",
+        "category": "workflow",
+        "definition": "Recording the output of Live's master output (or any track) back into a new audio track. Used to bounce a mix, capture live performance, or record a synthesiser to audio.",
+        "ableton_path": "Audio track → Audio From → Resampling",
+        "shortcut": None,
+        "related": ["Bounce", "Consolidate", "Freeze Track"],
+    },
+    {
+        "term": "Latency Compensation",
+        "category": "audio",
+        "definition": "Automatic delay applied by Ableton to align all tracks, accounting for different plugin processing delays. Keeps everything time-aligned regardless of plugin delay.",
+        "ableton_path": "Options → Delay Compensation (toggle)",
+        "shortcut": None,
+        "related": ["Buffer Size", "Plugin Delay Compensation"],
+    },
+]
+
+TECHNIQUES: list[dict[str, Any]] = [
+    {
+        "name": "Sidechain Compression (Pumping)",
+        "category": "mixing",
+        "description": "Using a kick drum's signal to duck a bass, pad, or whole mix via a compressor's external sidechain input. Creates the classic four-to-the-floor pumping effect.",
+        "steps": [
+            "Add a Compressor to the track you want to duck (e.g. bass or pad).",
+            "Expand the Compressor and enable Sidechain.",
+            "Set 'Audio From' to the kick drum track.",
+            "Set a fast Attack (0.1-1ms) and auto or medium Release.",
+            "Raise Ratio (4:1 to infinity:1) and lower Threshold until you see gain reduction on kick hits.",
+        ],
+        "shortcut": None,
+        "tags": ["mixing", "sidechain", "compression", "pumping", "bass", "kick"],
+    },
+    {
+        "name": "Parallel Compression",
+        "category": "mixing",
+        "description": "Blending heavily compressed audio with the dry signal to add punch and density while preserving transients. Often called New York compression.",
+        "steps": [
+            "Create a Return Track and add a Compressor with high ratio (8:1+) and low threshold.",
+            "Send the track you want to parallel compress to this Return Track.",
+            "Blend the Return amount to taste — start at 50% and adjust by ear.",
+        ],
+        "shortcut": None,
+        "tags": ["mixing", "compression", "drums", "parallel"],
+    },
+    {
+        "name": "Slice to New MIDI Track",
+        "category": "sound_design",
+        "description": "Automatically chops an audio loop at transients and maps each slice to a MIDI pad in a Drum Rack, enabling you to rearrange individual drum hits via MIDI.",
+        "steps": [
+            "Select an audio clip in the arrangement or session view.",
+            "Right-click the clip → Slice to New MIDI Track.",
+            "Choose slice resolution (Transients, 1/8, 1/16, etc.) and press OK.",
+            "A new MIDI track is created with a Drum Rack containing each slice.",
+            "Edit the auto-generated MIDI pattern or play pads to rearrange hits.",
+        ],
+        "shortcut": None,
+        "tags": ["sampling", "drums", "slicing", "midi", "drum_rack", "simpler"],
+    },
+    {
+        "name": "Frequency-Specific Sidechaining",
+        "category": "mixing",
+        "description": "Using the Compressor's sidechain EQ to make compression only respond to a specific frequency range — prevents low-end frequencies from unnecessarily triggering gain reduction.",
+        "steps": [
+            "Expand the Compressor and open the Sidechain section.",
+            "Enable the EQ toggle inside the sidechain panel.",
+            "High-pass the sidechain signal above 100-200 Hz so only mid/high content triggers compression.",
+        ],
+        "shortcut": None,
+        "tags": ["mixing", "compression", "sidechain", "eq", "mastering"],
+    },
+    {
+        "name": "Resampling a Synth to Audio",
+        "category": "workflow",
+        "description": "Recording a MIDI instrument's audio output back into a new audio track to free up CPU and enable audio-only editing.",
+        "steps": [
+            "Create an Audio Track and set 'Audio From' to the MIDI track you want to record.",
+            "Set 'Monitor' to Off on the audio track.",
+            "Arm the Audio Track for recording.",
+            "Play back the MIDI clip and record the audio output.",
+            "Once captured, disable or delete the MIDI track to save CPU.",
+        ],
+        "shortcut": None,
+        "tags": ["workflow", "cpu", "recording", "resampling", "bounce"],
+    },
+    {
+        "name": "Macro Knob Layering",
+        "category": "sound_design",
+        "description": "Mapping a single Macro knob to multiple parameters with inverted ranges to create complex, expressive sweeps from one control.",
+        "steps": [
+            "Place devices inside an Instrument or Audio Effect Rack.",
+            "Right-click a parameter → Map to Macro 1 (or any macro).",
+            "Map additional parameters to the same macro.",
+            "In the Macro Mapping view, set individual Min/Max ranges per mapping.",
+            "Turn the macro to sweep all mapped parameters simultaneously.",
+        ],
+        "shortcut": None,
+        "tags": ["sound_design", "macro", "rack", "performance", "modulation"],
+    },
+    {
+        "name": "Drum Bus Glue",
+        "category": "mixing",
+        "description": "Bussing all drum tracks through a Group Track with a Glue Compressor and EQ to unify the kit and add cohesion.",
+        "steps": [
+            "Select all drum tracks and group them (Cmd+G / Ctrl+G).",
+            "Add Glue Compressor to the Group Track's device chain.",
+            "Set Ratio 2:1, Attack 30ms, Release Auto, 1-3 dB of gain reduction.",
+            "Add a Channel EQ: slight high-shelf boost (+1-2 dB at 10 kHz) and high-pass at 30 Hz.",
+        ],
+        "shortcut": "Cmd+G / Ctrl+G",
+        "tags": ["mixing", "drums", "compression", "bus", "glue"],
+    },
+]
+
+
+def seed_database(conn: sqlite3.Connection) -> None:
+    """Insert all built-in Ableton Live knowledge into the database."""
+    for device in DEVICES:
+        cursor = conn.execute(
+            "INSERT INTO devices (name, category, subcategory, description, key_params, use_cases, tips) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                device["name"],
+                device["category"],
+                device.get("subcategory"),
+                device.get("description"),
+                json.dumps(device.get("key_params", [])),
+                json.dumps(device.get("use_cases", [])),
+                json.dumps(device.get("tips", [])),
+            ),
+        )
+        conn.execute(
+            "INSERT INTO devices_fts (device_id, name, description, use_cases, tips) VALUES (?, ?, ?, ?, ?)",
+            (
+                cursor.lastrowid,
+                device["name"],
+                device.get("description", ""),
+                " ".join(device.get("use_cases", [])),
+                " ".join(device.get("tips", [])),
+            ),
+        )
+
+    for concept in CONCEPTS:
+        cursor = conn.execute(
+            "INSERT INTO concepts (term, category, definition, ableton_path, shortcut, related) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                concept["term"],
+                concept.get("category"),
+                concept["definition"],
+                concept.get("ableton_path"),
+                concept.get("shortcut"),
+                json.dumps(concept.get("related", [])),
+            ),
+        )
+        conn.execute(
+            "INSERT INTO concepts_fts (concept_id, term, definition, ableton_path) VALUES (?, ?, ?, ?)",
+            (
+                cursor.lastrowid,
+                concept["term"],
+                concept["definition"],
+                concept.get("ableton_path", ""),
+            ),
+        )
+
+    for technique in TECHNIQUES:
+        cursor = conn.execute(
+            "INSERT INTO techniques (name, category, description, steps, shortcut, tags) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                technique["name"],
+                technique.get("category"),
+                technique.get("description"),
+                json.dumps(technique.get("steps", [])),
+                technique.get("shortcut"),
+                json.dumps(technique.get("tags", [])),
+            ),
+        )
+        conn.execute(
+            "INSERT INTO techniques_fts (technique_id, name, description, steps, tags) VALUES (?, ?, ?, ?, ?)",
+            (
+                cursor.lastrowid,
+                technique["name"],
+                technique.get("description", ""),
+                " ".join(technique.get("steps", [])),
+                " ".join(technique.get("tags", [])),
+            ),
+        )
+
+    conn.commit()
