@@ -1,0 +1,40 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install package with test extras
+        run: pip install -e ".[music-profile,dev]"
+
+      - name: Run tests
+        run: pytest -q
+
+      - name: Verify optional dependencies stay optional
+        run: |
+          pip uninstall -y spotipy mutagen
+          python -c "import abel.music_profile.spotify_client, abel.music_profile.local_scanner; print('lazy imports OK')"

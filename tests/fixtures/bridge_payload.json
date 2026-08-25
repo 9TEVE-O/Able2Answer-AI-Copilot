@@ -1,0 +1,64 @@
+{
+  "bridge_version": "0.1.0",
+  "captured_at": null,
+  "live_version": "Live 12.1.1",
+  "set": {
+    "name": null,
+    "tempo": 126.0,
+    "signature_numerator": 4,
+    "signature_denominator": 4,
+    "is_playing": 0
+  },
+  "audio": {
+    "sample_rate": 48000.0,
+    "buffer_size": 256.0
+  },
+  "tracks": [
+    {
+      "index": 0,
+      "name": "Kick",
+      "type": "audio",
+      "is_frozen": 0,
+      "is_muted": 0,
+      "is_soloed": 0,
+      "devices": [
+        {"name": "Glue", "class_name": "Compressor2", "is_active": 1},
+        {"name": "EQ Eight", "class_name": "Eq8", "is_active": 0}
+      ]
+    },
+    {
+      "index": 1,
+      "name": "Bass",
+      "type": "midi",
+      "is_frozen": 0,
+      "is_muted": 0,
+      "is_soloed": 0,
+      "devices": [
+        {"name": "Operator", "class_name": "Operator", "is_active": 1},
+        {"name": "Saturator", "class_name": "Saturator", "is_active": 1}
+      ]
+    },
+    {
+      "index": 2,
+      "name": "Pads (frozen)",
+      "type": "midi",
+      "is_frozen": 1,
+      "is_muted": 0,
+      "is_soloed": 0,
+      "devices": [
+        {"name": "Wavetable", "class_name": "InstrumentVector", "is_active": 1},
+        {"name": "Reverb", "class_name": "Reverb", "is_active": 1}
+      ]
+    },
+    {
+      "index": 3,
+      "name": "A Reverb",
+      "type": "return",
+      "is_frozen": 0,
+      "is_muted": 0,
+      "is_soloed": 0,
+      "devices": [{"name": "Reverb", "class_name": "Reverb", "is_active": 1}]
+    }
+  ],
+  "selected_track_index": 1
+}
