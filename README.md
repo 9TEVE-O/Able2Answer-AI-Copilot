@@ -121,9 +121,43 @@ abel/
 ├── config.py                # environment-driven configuration
 ├── main.py                  # CLI entry point
 ├── db/                      # SQLite knowledge base + FTS5 search + RAG context
+├── live/                    # the Live Set currently open: typed snapshot + bridge boundary
+├── evidence/                # observation vs. knowledge, and the guard between them
 └── music_profile/           # Spotify / iTunes / local file taste profiling
-tests/                       # 113 tests
+ableton/live-bridge/         # Max for Live device that reads the open Live Set
+tests/                       # 167 tests
 ```
+
+---
+
+## Reading the session that is open right now
+
+`.als` parsing answers *what is in the project I saved*. That is not the same
+question as *what is Live doing right now*, and a producer mid-session is
+usually asking the second one.
+
+The `abel/live/` package covers the second. A small **Max for Live bridge**
+reads the open Live Set through the Live Object Model and posts a structured
+snapshot to Abel, which parses it into a typed `SessionSnapshot`.
+
+The rules that layer follows are worth stating plainly, because they are the
+product:
+
+- **Read only.** The bridge calls no setter. It cannot change your session.
+- **Never guess a reading.** A property Live does not report stays `None` and
+  is shown as "not reported by Live". An assumed sample rate presented as an
+  observation is the exact failure this project exists to avoid.
+- **Never answer from a stale session.** An observation older than 30 seconds
+  is withheld, because you have probably changed something since.
+- **Observation and knowledge stay separate.** `abel/evidence/` keeps what was
+  *measured in your session* permanently distinguishable from what Abel *knows
+  about audio in general* — right through to the UI, which labels them apart.
+- **Quantities get checked.** Before an answer reaches you, every number in it
+  is checked against the evidence the model was given. Unsupported figures are
+  flagged rather than shown as fact.
+
+The bridge itself is deliberately tiny — no analysis, no thresholds, no advice.
+All of that lives in Python, where it is tested.
 
 ## Development
 
@@ -136,8 +170,9 @@ pytest -q
 
 Alpha, and honest about it:
 
-- The audio-quality tools, `.als` parsing, offline knowledge base, and taste-profile aggregation are covered by 113 tests.
+- The audio-quality tools, `.als` parsing, offline knowledge base, taste-profile aggregation, and the Live Bridge boundary are covered by 167 tests.
 - **Spotify OAuth has not been tested against the live API** — it has no automated coverage and rests on review rather than execution. Treat it as unproven until you have run `--setup-profile` with real credentials.
+- **The Max for Live bridge has not been run inside Ableton Live.** The Python side of that boundary is tested against the exact payload shape it documents, so the contract is covered — but the device producing it is not. See [`ableton/live-bridge/README.md`](ableton/live-bridge/README.md).
 
 ## License
 
